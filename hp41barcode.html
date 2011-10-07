@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <script type="text/javascript" src="functions.js"></script>
+    <script type="text/javascript" src="hp41barcode.js"></script>
+  </head>
+  <style>
+    @media print
+    {
+    .screen-only { display: none; }
+    }
+    svg { /*page-break-before: always; */ height: 100%; width: 100%}
+  </style>
+  <body>
+    <div class="screen-only">
+      <textarea id="program" cols="80" rows="40">
+	LBL "VOL"; FIX 1; "DIAMETER?"; AVIEW; WNDDTA; 2; /; X^2; PI; *; "LENGTH?"; AVIEW; WNDDTA; *; "VOLUME ="; ARCL X; AVIEW; FIX 4; RTN; 
+      </textarea>
+      <br/>
+      <a href="#" onclick="test(); return false;">Click me!</a>
+    </div>
+  </body>
+</html>
+
