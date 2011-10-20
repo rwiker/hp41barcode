@@ -684,7 +684,7 @@ function init_externals(modules) {
 	    for (kk in module) {
 		if (module.hasOwnProperty(kk)) {
 		    if (externals.hasOwnProperty(kk)) {
-			conflicts = (conflicts == null ? kk : conflicts + kk);
+			conflicts = (conflicts == null ? kk : conflicts + ', ' + kk);
 		    }
 		    else {
 			externals[kk] = module[kk]; 
