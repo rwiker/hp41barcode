@@ -675,6 +675,7 @@ function init_config () {
 function init_externals(modules) {
     externals = {};
     var k; 
+    var conflicts = null;
     for (k in xroms) {
 	if (xroms.hasOwnProperty(k) &&
 	    $("#chkbox_" + k).attr("checked") === "checked") {
@@ -682,11 +683,18 @@ function init_externals(modules) {
 	    var kk;
 	    for (kk in module) {
 		if (module.hasOwnProperty(kk)) {
-		    assert(! externals.hasOwnProperty(kk));
-		    externals[kk] = module[kk];
+		    if (externals.hasOwnProperty(kk)) {
+			conflicts = (conflicts == null ? kk : conflicts + kk);
+		    }
+		    else {
+			externals[kk] = module[kk]; 
+		    }
 		}
 	    }
 	}
+    }
+    if (conflicts != null) {
+	alert("Warning: module conflicts for symbols: " + conflicts);
     }
     hp41codeparser.prototype.re_externals = "^" + gen_dict_re(externals);
 }
