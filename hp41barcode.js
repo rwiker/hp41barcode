@@ -21,6 +21,7 @@ function build_tree(words) {
 	    }
 	    node = nn;
 	}
+	node.isterminal = true;
     }
     return tree;
 }
@@ -30,24 +31,23 @@ function build_regexp(tree) {
     var values = [];
     var ret;
     for (k in tree) {
-	if (tree.hasOwnProperty(k)) {
+	if ((tree.hasOwnProperty(k)) && (k != "isterminal")) {
 	    var v = build_regexp(tree[k]);
 	    var kk = k.match("[a-zA-Z0-9]") ? k : "\\" + k;
 	    if (v) {
 		//		vv = "(?:" + kk + v + ")";
-		vv = kk + v;
+		values.push(kk + v);
 	    }
-	    else {
-		vv = kk;
+	    if (!v || tree[k].isterminal) {
+		values.push(kk);
 	    }
-	    values.push(vv);
 	}
     }
     if (values.length === 0) {
 	return null;
     }
     if (values.length == 1) {
-	return values[0];
+	return values[0] + (tree.isterminal ? '?' : '');
     }
     else {
 	ret = "(?:";
@@ -59,6 +59,9 @@ function build_regexp(tree) {
 	    ret += values[i];
 	}
 	ret += ")";
+	if (tree.isterminal) {
+	    ret += '?';
+	}
     }
     return ret;
 }
@@ -81,7 +84,7 @@ function hp41barcodegenerator(properties) {
     this.x = this.xoffset;
     this.y = this.yoffset;
     this.rownum = 1;
-    this.rowspersheet = 20;
+    this.rowspersheet = 16;
     var k;
     for (k in properties) { 
 	if (properties.hasOwnProperty(k)) {
@@ -92,7 +95,7 @@ function hp41barcodegenerator(properties) {
     this.leadingbytes = 0;
     this.trailingbytes = 0;
     this.sequencenumber = 0;
-    if (this.parentlementid) {
+    if (this.parentelementid) {
 	this.parentelement = document.getElementById(this.parentelementid);
     }
     else {
@@ -125,7 +128,7 @@ hp41barcodegenerator.prototype.emitbyte = function(byte) {
     while (mask !== 0) {
 	var bit = (byte & mask) === 0 ? 0 : 1;
 	this.emitbit(bit);
-	mask = Math.floor(mask / 2);
+	mask >>= 1;
     }
 }
 
@@ -148,7 +151,7 @@ hp41barcodegenerator.prototype.trailer = function () {
 
 hp41barcodegenerator.prototype.newrow = function () {
     this.x = this.xoffset;
-    this.y += (this.height/* + this.yspacing*/);
+    this.y += (this.height);
     this.rownum += 1;
 }
 
@@ -171,7 +174,7 @@ hp41barcodegenerator.prototype.row = function (bytes) {
 
 
 function hp41codebatcher () {
-    this.generator = new hp41barcodegenerator();
+    this.generator = new hp41barcodegenerator({parentelementid: "barcodes"});
     this.typeindicator = 1; // set to 2 for "private"
     this.bytes = [];
     this.checksum = 0;
@@ -218,13 +221,14 @@ hp41codebatcher.prototype.batchout = function (len1, len2) {
     for (i = 0; i < buffer.length; i++) {
 	checksum += buffer[i];
     }
-    checksum = (checksum % 256) + ~~(checksum / 256);
-    checksum = (checksum % 256) + ~~(checksum / 256);
+    checksum = (checksum & 0xff) + (checksum >> 8);
+    checksum = (checksum & 0xff) + (checksum >> 8);
     this.checksum = checksum;
     buffer[0] = checksum;
     this.generator.row(buffer);
     this.remainder = this.bytes.length;
     this.seqno++;
+    this.seqno &= 0x0f;
 }
 
 hp41codebatcher.prototype.finish = function () {
@@ -305,7 +309,7 @@ hp41codeparser.prototype.match_lbl = function() {
 	return true;
     }
     // ELSE
-    m = this.sourcecode.match("^LBL\\s+\"([a-eA-J])\"");
+    m = this.sourcecode.match("^LBL\\s+([a-eA-J])");
     if (m) {
 	this.skip(m[0].length);
 	this.hp41codebatcher.emit([0xcf, this.shortlabels[m[1]]]);
@@ -330,6 +334,22 @@ hp41codeparser.prototype.match_xeq = function () {
     }
     // ELSE
     var m;
+    m = this.sourcecode.match("^XEQ\\s+IND\\s+(\\d\\d)");
+    if (m) {
+	this.skip(m[0].length);
+	var lbl = parseInt(m[1], 10);
+	this.hp41codebatcher.emit([0xae, lbl | 0x80]);
+	return true;
+    }
+    // ELSE
+    m = this.sourcecode.match("^XEQ\\s+IND\\s+([XYZTL])");
+    if (m) {
+	this.skip(m[0].length);
+	var lbl = this.stackitems[m[1]];
+	this.hp41codebatcher.emit([0xae, lbl | 0x80]);
+	return true;
+    }
+    // ELSE
     m = this.sourcecode.match("^XEQ\\s+(\\d\\d)");
     if (m) {
 	this.skip(m[0].length);
@@ -338,7 +358,7 @@ hp41codeparser.prototype.match_xeq = function () {
 	return true;
     }
     // ELSE
-    m = this.sourcecode.match("^XEQ\\s+\"([a-eA-J])\"");
+    m = this.sourcecode.match("^XEQ\\s+([a-eA-J])");
     if (m) {
 	this.skip(m[0].length);
 	this.hp41codebatcher.emit([0xe0, 0x00, this.shortlabels[m[1]]]);
@@ -353,24 +373,6 @@ hp41codeparser.prototype.match_xeq = function () {
 	return true;
     }
     // ELSE
-    m = this.sourcecode.match("^XEQ\\s+IND\\s+(\\d\\d)");
-    if (m) {
-	this.skip(m[0].length);
-	var lbl = parseInt(m[1], 10);
-	this.hp41codebatcher.emit([0xae, lbl | 0x80]);
-	return true;
-    }
-    // ELSE
-    m = this.sourcecode.match("^XEQ\\s+IND\\s+([XYZTL])");
-    if (m) {
-	this.skip(m[0].length);
-	var lbl = this.stackitems[m[1]];
-	// FIXME: verify that the coding here is correct... and what
-	// about things like GTO IND X?
-	this.hp41codebatcher.emit([0xae, lbl | 0x80]);
-	return true;
-    }
-    // ELSE
     return false;
 }
 
@@ -380,34 +382,6 @@ hp41codeparser.prototype.match_gto = function () {
     }
     // ELSE
     var m;
-    m = this.sourcecode.match("^GTO\\s+(\\d\\d)");
-    if (m) {
-	this.skip(m[0].length);
-	var lbl = parseInt(m[1], 10);
-	if (lbl < 15) {
-	    this.hp41codebatcher.emit([0xb1 + lbl, 0x00]);
-	}
-	else {
-	    this.hp41codebatcher.emit([0xd0, 0x00, lbl]);
-	}
-	return true;
-    }
-    // ELSE
-    m = this.sourcecode.match("^GTO\\s+\"([a-eA-J])\"");
-    if (m) {
-	this.skip(m[0].length);
-	this.hp41codebatcher.emit([0xd0, this.shortlabels[m[1]]]);
-	return true;
-    }
-    // ELSE
-    m = this.sourcecode.match("^GTO\\s\"([^\"]{1,15})\"");
-    if (m) {
-	this.skip(m[0].length);
-	bytes = this.translatechars(m[1]);
-	this.hp41codebatcher.emit([0x1d, 0xf0 + bytes.length, bytes]);
-	return true;
-    }
-    // ELSE
     m = this.sourcecode.match("^GTO\\s+IND\\s+(\\d\\d)");
     if (m) {
 	this.skip(m[0].length);
@@ -421,6 +395,34 @@ hp41codeparser.prototype.match_gto = function () {
 	this.skip(m[0].length);
 	var lbl = this.stackitems[m[1]];
 	this.hp41codebatcher.emit([0xae, lbl]);
+	return true;
+    }
+    // ELSE
+    m = this.sourcecode.match("^GTO\\s+(\\d\\d)");
+    if (m) {
+	this.skip(m[0].length);
+	var lbl = parseInt(m[1], 10);
+	if (lbl < 15) {
+	    this.hp41codebatcher.emit([0xb1 + lbl, 0x00]);
+	}
+	else {
+	    this.hp41codebatcher.emit([0xd0, 0x00, lbl]);
+	}
+	return true;
+    }
+    // ELSE
+    m = this.sourcecode.match("^GTO\\s+([a-eA-J])");
+    if (m) {
+	this.skip(m[0].length);
+	this.hp41codebatcher.emit([0xd0, this.shortlabels[m[1]]]);
+	return true;
+    }
+    // ELSE
+    m = this.sourcecode.match("^GTO\\s\"([^\"]{1,15})\"");
+    if (m) {
+	this.skip(m[0].length);
+	bytes = this.translatechars(m[1]);
+	this.hp41codebatcher.emit([0x1d, 0xf0 + bytes.length, bytes]);
 	return true;
     }
     // ELSE
@@ -460,7 +462,7 @@ hp41codeparser.prototype.match_reg = function () {
     return false;
 }
 
-hp41codeparser.prototype.re_alpha = '^((?:A|(?:-\\>))?)"([^"]*)"';
+hp41codeparser.prototype.re_alpha = '^((?:-?\\>)?)"([^"]*)"';
 hp41codeparser.prototype.match_alpha = function () {
     var m = this.sourcecode.match(this.re_alpha);
     if (m) {
@@ -482,7 +484,7 @@ hp41codeparser.prototype.match_alpha = function () {
 }
 
 hp41codeparser.prototype.re_number = new
-RegExp("^[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][-+]?\\d{1,2})?");
+RegExp("^[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][-+]?\\d{1,2})?\\b");
 
 hp41codeparser.prototype.match_number = function () {
     var m;
@@ -566,24 +568,23 @@ hp41codeparser.prototype.match_builtins = function () {
     return false;
 }
 
-hp41codeparser.prototype.re_externals = "^" + gen_dict_re(xroms);
+var externals = {};
 
 hp41codeparser.prototype.match_external = function () {
     var m;
     m = this.sourcecode.match(this.re_externals);
     if (m) {
 	this.skip(m[0].length);
-	var codes = xroms[m[0]];
+	var codes = externals[m[0]];
 	var romid = codes[0];
 	var functionid = codes[1];
 	var id = 64 * romid + functionid;
-	var b1 = ((id / 256) | 0) + 0xa0;
-	var b2 = id % 256;
+	var b1 = (id >> 8) + 0xa0;
+	var b2 = id & 0xff;
 	assert((b1 >= 0xa0) && (b1 <= 0xa8));
 	this.hp41codebatcher.emit([b1, b2]);
 	return true;
     }
-			      
     return false;
 }
 
@@ -594,8 +595,8 @@ hp41codeparser.prototype.match_xrom = function () {
 	var romid = parseInt(m[1], 10);
 	var functionid = parseInt(m[2], 10);
 	var id = 64 * romid + functionid;
-	var b1 = ((id / 256) | 0) + 0xa0;
-	var b2 = id % 256;
+	var b1 = (id >> 8) + 0xa0;
+	var b2 = id & 0xff;
 	assert((b1 >= 0xa0) && (b1 <= 0xa8));
 	this.hp41codebatcher.emit([b1, b2]);
 	return true;
@@ -604,6 +605,11 @@ hp41codeparser.prototype.match_xrom = function () {
 }
 
 hp41codeparser.prototype.parse = function () {
+    init_externals();
+    $("#barcodes").empty();
+    // strip away line numbers
+    this.sourcecode = this.sourcecode.replace(/^\d+ +/gm, "");
+
     this.skip_sep();
     while (this.sourcecode !== "") {
 	var matched = 
@@ -612,17 +618,23 @@ hp41codeparser.prototype.parse = function () {
 	    this.match_gto() ||
 	    this.match_reg() ||
 	    this.match_alpha() ||
+	    this.match_number() ||
 	    this.match_builtins() ||
 	    this.match_external() ||
-	    this.match_xrom() ||
-	    this.match_number();
+	    this.match_xrom();
 	if (! matched) {
-	    alert("ERROR at pos " + this.pos + "; '" 
-		  + (this.sourcecode.length > 25 ?
-		     this.sourcecode.substring(0, 21) + " ..." :
-		     this.sourcecode)
-		  + "' not matched."); 
-	    throw("die!");
+	    matched = this.sourcecode.match("^END\\b");
+	    if (matched) {
+		this.skip(matched[0].length);
+	    }
+	    else {
+		alert("ERROR at pos " + this.pos + "; '" 
+		      + (this.sourcecode.length > 25 ?
+			 this.sourcecode.substring(0, 21) + " ..." :
+			 this.sourcecode)
+		      + "' not matched."); 
+		throw("die!");
+	    }
 	}
 	// ELSE
 	this.skip_sep();
@@ -675,4 +687,71 @@ function testparser() {
 function test() {
     //testbatcher();
     testparser();
+}
+
+var externals;
+var defaultmodules = ["CXextfcn", "CXtime", "advantage",
+				  "cardr", "wand", "yfns"];
+
+function init_config () {
+    var config = $("#config");
+    var root = $("<ul style='list-style-type: none'/>").appendTo(config);
+    var k;
+    for (k in xroms) {
+	if (xroms.hasOwnProperty(k)) {
+	    var item = $("<li><label/><input type='checkbox'/></li>").appendTo(root);
+	    $(item).children("label").attr("for", "chkbox_" + k).text(k);
+	    
+	    $(item).children("input").attr("id", "chkbox_" + k);
+	    if (defaultmodules.indexOf(k) >= 0) {
+		$(item).children("input").attr("checked", "checked");
+	    }
+	}
+    }
+    $(root).append("<a href='#' onclick='test(); return false;'>Do it!</a>");
+}
+
+function init_config () {
+    var config = $("#config");
+    $(config).html("<div style='float:left;'/><div style='float:right;'/></div style='clear: both;'/>");
+    var table = $("<table/>").appendTo(config.children("div:first-child"));
+    $(table).append("<tr><th colwidth'=2'>Modules</th></tr>");
+    var k;
+    for (k in xroms) {
+	if (xroms.hasOwnProperty(k)) {
+	    var item = $("<tr><td>" + k + "</td><td><input type='checkbox'/></td></tr>").appendTo(table);
+	    $(item).find("input").attr("id", "chkbox_" + k);
+	    if (defaultmodules.indexOf(k) >= 0) {
+		$(item).find("input").attr("checked", "checked");
+	    }
+	}
+    }
+    $(config).children("div:nth-child(2)").append("<a href='#' onclick='test(); return false;'>Do it!</a>");
+}
+
+
+function init_externals(modules) {
+    externals = {};
+    var k; 
+    for (k in xroms) {
+	if (xroms.hasOwnProperty(k) &&
+	    $("#chkbox_" + k).attr("checked") === "checked") {
+	    var module = xroms[k];
+	    var kk;
+	    for (kk in module) {
+		if (module.hasOwnProperty(kk)) {
+		    assert(! externals.hasOwnProperty(kk));
+		    externals[kk] = module[kk];
+		}
+	    }
+	}
+    }
+    hp41codeparser.prototype.re_externals = "^" + gen_dict_re(externals);
+}
+
+
+function hp41barcode_init() {
+    init_config();
+    $("#tabs").tabs();
+    $("a").button();
 }
