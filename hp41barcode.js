@@ -643,73 +643,15 @@ hp41codeparser.prototype.parse = function () {
     this.hp41codebatcher.finish();
 }
 
-function testbatcher() {
-    var gen = new hp41codebatcher();
-    
-    // bytes 0..2 should be 146, 16, 0
-    gen.emit([198, 0, 244, 0, 83, 
-	      81, 82, 156, 0, 169, 29, 166, 197]);
-    // bytes 0..2 should be 207, 17, 0
-    gen.emit([33, 17, 16, 67, 104,
-	      244, 82, 79,87, 32, 155, 115, 33]);
-    // bytes 0..2 should be 32, 18, 0
-    gen.emit([17, 16, 75, 247, 127,
-	      44, 32, 67, 79, 76, 32, 155, 115]);
-    // bytes 0..2 should be 151, 19, 0
-    gen.emit([126, 156, 4, 168, 29,
-	      133, 194, 8, 47]);
-    gen.finish();
-
-}
-
-function testbcgen () {
-    var gen = new hp41barcodegenerator();
-    var i;
-    for (i = 0; i < 16; i++) {
-	gen.header();
-	gen.emitbytes([146, 16, 0, 198, 0, 244, 0, 83, 
-		       81, 82, 156, 0, 169, 29, 166, 197]);
-	gen.trailer();
-	gen.newrow();
-    }
-}
-
-function testparser() {
-    // var program = 'LBL "SQR"; FIX 0; CF    29; WNDSCN';
-    // var program = 'LBL "VOL"; FIX 1; "DIAMETER?"; AVIEW; WNDDTA; 2;
-    // /; X^2; PI; *; "LENGTH?"; AVIEW; WNDDTA; *; "VOLUME ="; ARCL X;
-    // AVIEW; FIX 4; RTN; ';
+function doit() {
     var program = document.getElementById("program").value;
     var parser = new hp41codeparser(program);
     parser.parse();
 }
 
-function test() {
-    //testbatcher();
-    testparser();
-}
-
 var externals;
 var defaultmodules = ["CXextfcn", "CXtime", "advantage",
 				  "cardr", "wand", "yfns"];
-
-function init_config () {
-    var config = $("#config");
-    var root = $("<ul style='list-style-type: none'/>").appendTo(config);
-    var k;
-    for (k in xroms) {
-	if (xroms.hasOwnProperty(k)) {
-	    var item = $("<li><label/><input type='checkbox'/></li>").appendTo(root);
-	    $(item).children("label").attr("for", "chkbox_" + k).text(k);
-	    
-	    $(item).children("input").attr("id", "chkbox_" + k);
-	    if (defaultmodules.indexOf(k) >= 0) {
-		$(item).children("input").attr("checked", "checked");
-	    }
-	}
-    }
-    $(root).append("<a href='#' onclick='test(); return false;'>Do it!</a>");
-}
 
 function init_config () {
     var config = $("#config");
@@ -726,7 +668,7 @@ function init_config () {
 	    }
 	}
     }
-    $(config).children("div:nth-child(2)").append("<a href='#' onclick='test(); return false;'>Do it!</a>");
+    $(config).children("div:nth-child(2)").append("<a href='#' onclick='doit(); return false;'>Do it!</a>");
 }
 
 
