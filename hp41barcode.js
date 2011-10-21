@@ -704,4 +704,5 @@ function hp41barcode_init() {
     init_config();
     $("#tabs").tabs();
     $("a").button();
+    $("textarea").resizable()
 }
