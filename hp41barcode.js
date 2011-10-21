@@ -650,8 +650,8 @@ function doit() {
 }
 
 var externals;
-var defaultmodules = ["CXextfcn", "CXtime", "advantage",
-				  "cardr", "wand", "yfns"];
+var defaultmodules = {"CXextfcn": 1, "CXtime": 1, "advantage": 1,
+		      "cardr": 1, "wand": 1, "yfns": 1};
 
 function init_config () {
     var config = $("#config");
@@ -663,7 +663,7 @@ function init_config () {
 	if (xroms.hasOwnProperty(k)) {
 	    var item = $("<tr><td>" + k + "</td><td><input type='checkbox'/></td></tr>").appendTo(table);
 	    $(item).find("input").attr("id", "chkbox_" + k);
-	    if (defaultmodules.indexOf(k) >= 0) {
+	    if (defaultmodules.[k] === 1) {
 		$(item).find("input").attr("checked", "checked");
 	    }
 	}
