@@ -663,7 +663,7 @@ function init_config () {
 	if (xroms.hasOwnProperty(k)) {
 	    var item = $("<tr><td>" + k + "</td><td><input type='checkbox'/></td></tr>").appendTo(table);
 	    $(item).find("input").attr("id", "chkbox_" + k);
-	    if (defaultmodules.[k] === 1) {
+	    if (defaultmodules[k] === 1) {
 		$(item).find("input").attr("checked", "checked");
 	    }
 	}
