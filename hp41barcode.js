@@ -647,6 +647,7 @@ function doit() {
     var program = document.getElementById("program").value;
     var parser = new hp41codeparser(program);
     parser.parse();
+    $("#tabs").tabs("select", $("#tabs").tabs("length") - 1);
 }
 
 var externals;
