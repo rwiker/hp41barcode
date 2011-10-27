@@ -679,7 +679,7 @@ function init_externals(modules) {
     var conflicts = null;
     for (k in xroms) {
 	if (xroms.hasOwnProperty(k) &&
-	    $("#chkbox_" + k).attr("checked") === "checked") {
+	    $("#chkbox_" + k).checked) {
 	    var module = xroms[k];
 	    var kk;
 	    for (kk in module) {
