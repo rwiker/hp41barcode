@@ -86,6 +86,7 @@ function hp41barcodegenerator(properties) {
     this.rownum = 1;
     this.rowspersheet = 16;
     this.title = "<Unknown Title>";
+    this.pageno = 1;
     var k;
     for (k in properties) { 
 	if (properties.hasOwnProperty(k)) {
@@ -114,7 +115,8 @@ hp41barcodegenerator.prototype.newsheet = function () {
     text.setAttribute("x", this.xoffset);
     text.setAttribute("y", this.y + this.fontsize);
     text.setAttribute("fill", "black");
-    text.appendChild(document.createTextNode('Program: "' + this.title + '"'));
+    text.appendChild(document.createTextNode('Program: "' + this.title + '", Page: ' + this.pageno));
+    this.pageno++;
     this.svgelement.appendChild(text);
     this.y += this.yspacing;
 }
