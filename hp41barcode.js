@@ -705,6 +705,6 @@ function init_externals(modules) {
 function hp41barcode_init() {
     init_config();
     $("#tabs").tabs();
-    $("a").button();
+    $("a[href='#']").button();
     $("textarea").resizable()
 }
