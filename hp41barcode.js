@@ -85,6 +85,7 @@ function hp41barcodegenerator(properties) {
     this.y = this.yoffset;
     this.rownum = 1;
     this.rowspersheet = 16;
+    this.title = "<Unknown Title>";
     var k;
     for (k in properties) { 
 	if (properties.hasOwnProperty(k)) {
@@ -109,6 +110,13 @@ hp41barcodegenerator.prototype.newsheet = function () {
     this.parentelement.appendChild(this.svgelement);
     this.x = this.xoffset;
     this.y = this.yoffset;
+    var text = document.createElementNS(svgNS, "text");
+    text.setAttribute("x", this.xoffset);
+    text.setAttribute("y", this.y + this.fontsize);
+    text.setAttribute("fill", "black");
+    text.appendChild(document.createTextNode('Program: "' + this.title + '"'));
+    this.svgelement.appendChild(text);
+    this.y += this.yspacing;
 }
 
 hp41barcodegenerator.prototype.emitbit = function(bit) {
@@ -173,8 +181,10 @@ hp41barcodegenerator.prototype.row = function (bytes) {
 }
 
 
-function hp41codebatcher () {
-    this.generator = new hp41barcodegenerator({parentelementid: "barcodes"});
+function hp41codebatcher (title) {
+    this.title = title;
+    this.generator = new hp41barcodegenerator({title: title,
+					       parentelementid: "barcodes"});
     this.typeindicator = 1; // set to 2 for "private"
     this.bytes = [];
     this.checksum = 0;
@@ -238,9 +248,10 @@ hp41codebatcher.prototype.finish = function () {
 }
 
 
-function hp41codeparser (program) {
+function hp41codeparser (title, program) {
+    this.title = title;
     this.sourcecode = program;
-    this.hp41codebatcher = new hp41codebatcher();
+    this.hp41codebatcher = new hp41codebatcher(title);
     this.pos = 0;
 }
 
@@ -645,10 +656,11 @@ hp41codeparser.prototype.parse = function () {
 }
 
 function doit() {
+    var title = document.getElementById("title").value;
     var program = document.getElementById("program").value;
-    var parser = new hp41codeparser(program);
+    var parser = new hp41codeparser(title, program);
     parser.parse();
-    $("#tabs").tabs("select", $("#tabs").tabs("length") - 1);
+    $("#tabs").tabs("select", 1);
 }
 
 var externals;

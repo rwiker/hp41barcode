@@ -28,6 +28,12 @@
       </ul>
       <div class="screen-only" id="src">
 	<div style="float:left; width: 50%; min-width: 400px; min-height: 400px">
+	  <label for="title">Program title:</label>
+	  <br/>
+	  <input type=text id="title" value="Cylinder Volume (Wand)" style="width: 100%"/>
+	  <br/>
+	  <label for="program">Program Source:</label>
+	  <br/>
 	  <textarea id="program" style="width:100%; height: 400px;">
 	    LBL "VOL"; FIX 1; "DIAMETER?"; AVIEW; WNDDTA; 2; /; X^2; PI; *; "LENGTH?"; AVIEW; WNDDTA; *; "VOLUME ="; ARCL X; AVIEW; FIX 4; RTN; 
 	  </textarea>
