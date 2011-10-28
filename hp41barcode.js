@@ -592,6 +592,7 @@ hp41codeparser.prototype.match_xrom = function () {
     var m;
     m = this.sourcecode.match("^XROM (\\d+),\\s*(\\d+)")
     if (m) {
+	this.skip(m[0].length);
 	var romid = parseInt(m[1], 10);
 	var functionid = parseInt(m[2], 10);
 	var id = 64 * romid + functionid;
