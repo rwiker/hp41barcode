@@ -44,6 +44,38 @@
                  (setf (gethash name ht) (list xrom-id function-id))))))
   ht)
 
+(defun extract-xrom (infile &optional (ht (make-hash-table :test #'equal)))
+  (let ((rom-name))
+    (with-open-file (f infile :direction :input :element-type '(unsigned-byte 8))
+      (let ((buffer (make-array (list (file-length f)) :element-type '(unsigned-byte 8))))
+        (read-sequence buffer f)
+        (flet ((get-10 (offset)
+                 (+ (ash (aref buffer (* offset 2)) 8)
+                    (aref buffer (+ 1 (* offset 2)))))
+               (get-8 (offset)
+                 (aref buffer (+ 1 (* offset 2))))
+               (get-16 (offset)
+                 (+ (ash (aref buffer (+ 1 (* offset 2))) 8)
+                    (aref buffer (+ 3 (* offset 2))))))
+          (let ((rom-id (get-10 0))
+                (num-elements (get-10 1)))
+            (loop for i below num-elements
+                  do (let* ((entry-pt (get-16 (+ 2 (* i 2))))
+                            (name (with-output-to-string (s)
+                                    (loop for addr from (- entry-pt 1) by -1
+                                          for ccode = (get-8 addr)
+                                          for ccode-masked = (logand ccode #x7f)
+                                          for char = (code-char (if (<= ccode-masked 26) (+ ccode-masked 64) ccode-masked))
+                                          do (progn (write-char char s))
+                                          while (= ccode ccode-masked)))))
+                       (if (zerop i)
+                         (setf rom-name name)
+                         (setf (gethash name ht) (list rom-id i)))))))))
+    (values rom-name ht)))
+
+#||
+(extract-xrom #p"/Users/raw/Desktop/HP41Barcode/yfnz-1e.rom")
+||#
 (defun get-yfns (infile xrom-id &optional (ht (make-hash-table :test #'equal)))
   (with-open-file (f infile :direction :input)
     (loop for name = (read-line f nil)
