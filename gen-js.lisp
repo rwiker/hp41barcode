@@ -4,8 +4,9 @@
 (defun aliases-for (name)
   (or (when (cl-ppcre:scan ".+\\!\\=.+" name)
         (list (cl-ppcre:regex-replace "(.+)\\!\\=(.+)" name "\\1 NE \\2")))
-      (when (cl-ppcre:scan "}" name)
-        (list (cl-ppcre:regex-replace "\\}" name "->")))      
+      (when (cl-ppcre:scan "\\}" name)
+        (nconc (list (cl-ppcre:regex-replace "\\}" name "->"))
+               (list (cl-ppcre:regex-replace "\\}" name "-"))))
       (when (string= name "ENTER^") (list "ENTER"))
       (when (string= name "R^") (list "RUP"))
       (when (string= name "LBL") (list "*LBL"))))
@@ -44,38 +45,151 @@
                  (setf (gethash name ht) (list xrom-id function-id))))))
   ht)
 
-(defun extract-xrom (infile &optional (ht (make-hash-table :test #'equal)))
+
+
+(defun extract-xrom-from-buffer (buffer &optional (ht (make-hash-table :test #'equal)))
   (let ((rom-name))
-    (with-open-file (f infile :direction :input :element-type '(unsigned-byte 8))
-      (let ((buffer (make-array (list (file-length f)) :element-type '(unsigned-byte 8))))
-        (read-sequence buffer f)
-        (flet ((get-10 (offset)
-                 (+ (ash (aref buffer (* offset 2)) 8)
-                    (aref buffer (+ 1 (* offset 2)))))
-               (get-8 (offset)
-                 (aref buffer (+ 1 (* offset 2))))
-               (get-16 (offset)
-                 (+ (ash (aref buffer (+ 1 (* offset 2))) 8)
-                    (aref buffer (+ 3 (* offset 2))))))
-          (let ((rom-id (get-10 0))
-                (num-elements (get-10 1)))
-            (loop for i below num-elements
-                  do (let* ((entry-pt (get-16 (+ 2 (* i 2))))
-                            (name (with-output-to-string (s)
-                                    (loop for addr from (- entry-pt 1) by -1
-                                          for ccode = (get-8 addr)
-                                          for ccode-masked = (logand ccode #x7f)
-                                          for char = (code-char (if (<= ccode-masked 26) (+ ccode-masked 64) ccode-masked))
-                                          do (progn (write-char char s))
-                                          while (= ccode ccode-masked)))))
-                       (if (zerop i)
-                         (setf rom-name name)
-                         (setf (gethash name ht) (list rom-id i)))))))))
+    (flet ((get-10 (offset)
+             (+ (ash (aref buffer (* offset 2)) 8)
+                (aref buffer (+ 1 (* offset 2)))))
+           (get-8 (offset)
+             (aref buffer (+ 1 (* offset 2))))
+           (get-16 (offset)
+             (+ (ash (aref buffer (+ 1 (* offset 2))) 8)
+                (aref buffer (+ 3 (* offset 2))))))
+      (let ((rom-id (get-10 0))
+            (num-elements (get-10 1)))
+        (loop for i below num-elements
+              do (let* ((entry-pt (get-16 (+ 2 (* i 2))))
+                        (name (with-output-to-string (s)
+                                (loop for addr from (- entry-pt 1) by -1
+                                      for ccode = (get-8 addr)
+                                      for ccode-masked = (logand ccode #x7f)
+                                      for char = (code-char (if (<= ccode-masked 26) (+ ccode-masked 64) ccode-masked))
+                                      do (progn (write-char char s))
+                                      while (= ccode ccode-masked)))))
+                   (if (zerop i)
+                     (setf rom-name name)
+                     (setf (gethash name ht) (list rom-id i)))))))
     (values rom-name ht)))
+
+(defun extract-xrom (infile &optional (ht (make-hash-table :test #'equal)))
+  (with-open-file (f infile :direction :input :element-type '(unsigned-byte 8))
+    (let ((buffer (make-array (list (file-length f)) :element-type '(unsigned-byte 8))))
+      (read-sequence buffer f)
+      (extract-xrom-from-buffer buffer ht))))
+
+(defparameter *module-file-header*
+  '((file-format 5)
+    (title 50)
+    (version 10)
+    (part-number 20)
+    (author 50)
+    (copyright 100)
+    (license 200)
+    (comments 255)
+    (category 1)
+    (hardware 1)
+    (mem-modules 1)
+    (xmem-modules 1)
+    (original 1)
+    (app-auto-update 1)
+    (num-pages 1)
+    (header-custom 32)))
+
+(defparameter *module-file-page*
+  '((name 20)
+    (id 9)
+    (page 1)
+    (page-group 1)
+    (bank 1)
+    (bank-group 1)
+    (ram 1)
+    (write-protect 1)
+    (fat 1)
+    (image 5120)
+    (page-custom 32)))
+
+(defun get-offset-and-length (descr item)
+  (let ((offset 0))
+    (loop for (sym length) in descr
+          do (if (eq item sym)
+               (return-from get-offset-and-length (values offset length))
+               (incf offset length)))
+    (values offset 0)))
+
+(defun get-offset-and-length/cached (descr item cache)
+  (multiple-value-bind (data found-p)
+      (gethash item cache)
+    (if found-p
+      (values-list data)
+      (multiple-value-bind (offset length)
+          (get-offset-and-length descr item)
+        (setf (gethash item cache) (list offset length))
+        (values offset length)))))
+
+(defmacro def-lookup/offset-length (name descr)
+  (with-unique-names (g-descr g-cache g-item)
+    `(let ((,g-descr ,descr)
+           (,g-cache (make-hash-table :test #'eq)))
+       (defun ,name (,g-item)
+         (get-offset-and-length/cached ,g-descr ,g-item ,g-cache)))))
+
+(def-lookup/offset-length get-module-header-offset-and-length *module-file-header*)
+
+(def-lookup/offset-length get-module-page-offset-and-length *module-file-page*)
+
+#||
+
+(get-module-header-offset-and-length 'file-format)
+(get-module-header-offset-and-length 'title)
+(get-module-header-offset-and-length 'version)
+(get-module-header-offset-and-length 'nil)
+(get-module-page-offset-and-length 'nil)
+||#
+
+#||
+(defun extract-xroms-from-module (infile &optional (ht (make-hash-table :test #'equal)))
+  (with-open-file (f infile :direction :input :element-type '(unsigned-byte 8))
+    (let ((buffer (make-array (list (file-length f)) :element-type '(unsigned-byte 8))))
+      (read-sequence buffer f)
+      (labels ((get-string (octets)
+                 (map 'string #'code-char (subseq octets 0 (position 0 octets))))
+               (get-header-octet (item)
+                 (aref buffer (get-module-header-offset-and-length item)))
+               (get-header-octets (item)
+                 (multiple-value-bind (offset length)
+                     (get-module-header-offset-and-length item)
+                   (subseq buffer offset (+ offset length))))
+               (get-header-string (item)
+                 (get-string (get-header-octets item)))
+               (get-page-octet (item)
+                 (aref buffer (get-module-page-offset-and-length item)))
+               (get-page-octets (item)
+                 (multiple-value-bind (offset length)
+                     (get-module-page-offset-and-length item)
+                   (subseq buffer offset (+ offset length))))
+               (get-page-string (item)
+                 (get-string (get-page-octets item))))
+        (loop for item in '(title version author license copyright)
+              do (format t "~&~a: ~a~%" item (get-header-string item)))
+        (format t "~&Num pages: ~d~%" (get-header-octet 'num-pages))))))
+
+
+(extract-xroms-from-module #p"/Users/raw/devel/hp41barcode-extras/SANDMATH-II.MOD")
+(untrace)
+(trace get-offset-and-length)
+               
+                         
+
+      
+      ||#   
+    
 
 #||
 (extract-xrom #p"/Users/raw/Desktop/HP41Barcode/yfnz-1e.rom")
 ||#
+
 (defun get-yfns (infile xrom-id &optional (ht (make-hash-table :test #'equal)))
   (with-open-file (f infile :direction :input)
     (loop for name = (read-line f nil)
