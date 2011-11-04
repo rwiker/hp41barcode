@@ -41,7 +41,9 @@
                  (unless (or (null (gethash name ht))
                              (and (= xrom-id (first (gethash name ht)))
                                   (= function-id (second (gethash name ht)))))
-                   (format *error-output* "~&Conflict: ~a~%" name))
+                   (format *error-output* "~&Conflict: ~a~%" name)
+                   (format *error-output* "Old: XROM ~d,~d~%" (first (gethash name ht)) (second (gethash name ht)))
+                   (format *error-output* "New: XROM ~d,~d~%" xrom-id function-id))
                  (setf (gethash name ht) (list xrom-id function-id))))))
   ht)
 
@@ -223,9 +225,16 @@
             for table = (get-xrom xrom)
             do (print-table (format nil "xroms['~a']" table-name)
                             table out))
+      (loop for xrom in (directory (merge-pathnames "bin/*.rom" basedir))
+            do (multiple-value-bind (table-name table)
+                   (extract-xrom xrom)
+                 (print-table (format nil "xroms['~a']" table-name)
+                              table out)))
       (print-table "xroms['yfns']" (get-yfns (merge-pathnames #p"yfns.txt" basedir) 15) out)
       (print-table "xroms['yfnz']" (get-yfns (merge-pathnames #p"yfns.txt" basedir) 15) out))))
 
 #||
+(extract-xrom #p"/Users/raw/devel/hp41/rom/SMATH2.rom")
+
 (main #p"/Users/raw/devel/hp41/rom/" #p"/Users/raw/devel/hp41barcode/functions.js")
 ||#
