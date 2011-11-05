@@ -47,8 +47,6 @@
                  (setf (gethash name ht) (list xrom-id function-id))))))
   ht)
 
-
-
 (defun extract-xrom-from-buffer (buffer &optional (ht (make-hash-table :test #'equal)))
   (let ((rom-name))
     (flet ((get-10 (offset)
@@ -58,7 +56,9 @@
              (aref buffer (+ 1 (* offset 2))))
            (get-16 (offset)
              (+ (ash (aref buffer (+ 1 (* offset 2))) 8)
-                (aref buffer (+ 3 (* offset 2))))))
+                (aref buffer (+ 3 (* offset 2)))))
+           (encode-char (ccode)
+             (code-char (if (<= ccode 31) (+ ccode 64) ccode))))
       (let ((rom-id (get-10 0))
             (num-elements (get-10 1)))
         (loop for i below num-elements
@@ -67,9 +67,11 @@
                                 (loop for addr from (- entry-pt 1) by -1
                                       for ccode = (get-8 addr)
                                       for ccode-masked = (logand ccode #x7f)
-                                      for char = (code-char (if (<= ccode-masked 26) (+ ccode-masked 64) ccode-masked))
-                                      do (progn (write-char char s))
+                                      for char = (encode-char ccode-masked)
+                                      do (progn (write-char char s)
+                                           (format t "~&ccode=~2,'0X (~2,'0X) <~C>~%" ccode-masked ccode char))
                                       while (= ccode ccode-masked)))))
+                   (terpri)
                    (if (zerop i)
                      (setf rom-name name)
                      (setf (gethash name ht) (list rom-id i)))))))
@@ -228,13 +230,13 @@
       (loop for xrom in (directory (merge-pathnames "bin/*.rom" basedir))
             do (multiple-value-bind (table-name table)
                    (extract-xrom xrom)
-                 (print-table (format nil "xroms['~a']" table-name)
+                 (print-table (format nil "xroms['~a']" #+nil table-name (pathname-name xrom))
                               table out)))
       (print-table "xroms['yfns']" (get-yfns (merge-pathnames #p"yfns.txt" basedir) 15) out)
       (print-table "xroms['yfnz']" (get-yfns (merge-pathnames #p"yfns.txt" basedir) 15) out))))
 
 #||
-(extract-xrom #p"/Users/raw/devel/hp41/rom/SMATH2.rom")
+(extract-xrom #p"/Users/raw/devel/hp41/rom/bin/41Z.rom")
 
 (main #p"/Users/raw/devel/hp41/rom/" #p"/Users/raw/devel/hp41barcode/functions.js")
 ||#
