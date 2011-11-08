@@ -67,7 +67,7 @@
                    ((= ccode #.(char-code #\N)) ; sigma
                     (write-string "~" stream))
                    (t
-                    (code-char ccode)))))
+                    (write-char (code-char ccode) stream)))))
       (let ((rom-id (get-10 0))
             (num-elements (get-10 1)))
         (loop for i below num-elements
