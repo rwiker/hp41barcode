@@ -57,8 +57,17 @@
            (get-16 (offset)
              (+ (ash (aref buffer (+ 1 (* offset 2))) 8)
                 (aref buffer (+ 3 (* offset 2)))))
-           (encode-char (ccode)
-             (code-char (if (<= ccode 31) (+ ccode 64) ccode))))
+           (write-encoded-char (ccode stream)
+             (cond ((<= ccode 32)
+                    (write-char (code-char (+ ccode 64)) stream))
+                   ((<= #.(char-code #\A) ccode #.(char-code #\E))
+                    (write-char (code-char (+ ccode 32)) stream))
+                   ((= ccode #.(char-code #\M)) ; not-equal
+                    (write-string "!=" stream))
+                   ((= ccode #.(char-code #\N)) ; sigma
+                    (write-string "~" stream))
+                   (t
+                    (code-char ccode)))))
       (let ((rom-id (get-10 0))
             (num-elements (get-10 1)))
         (loop for i below num-elements
@@ -67,11 +76,12 @@
                                 (loop for addr from (- entry-pt 1) by -1
                                       for ccode = (get-8 addr)
                                       for ccode-masked = (logand ccode #x7f)
-                                      for char = (encode-char ccode-masked)
-                                      do (progn (write-char char s)
-                                           (format t "~&ccode=~2,'0X (~2,'0X) <~C>~%" ccode-masked ccode char))
+                                      do (progn
+                                           (format t "~&ccode=~2,'0X (~2,'0X)~%" ccode-masked ccode)
+                                           (write-encoded-char ccode-masked s))
                                       while (= ccode ccode-masked)))))
                    (terpri)
+                   (format t "~&Found id ~s~%" name)
                    (if (zerop i)
                      (setf rom-name name)
                      (setf (gethash name ht) (list rom-id i)))))))
