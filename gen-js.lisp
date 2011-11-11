@@ -68,23 +68,38 @@
                     (write-string "~" stream))
                    (t
                     (write-char (code-char ccode) stream)))))
-      (let ((rom-id (get-10 0))
-            (num-elements (get-10 1)))
-        (loop for i below num-elements
-              do (let* ((entry-pt (get-16 (+ 2 (* i 2))))
-                        (name (with-output-to-string (s)
-                                (loop for addr from (- entry-pt 1) by -1
-                                      for ccode = (get-8 addr)
-                                      for ccode-masked = (logand ccode #x7f)
-                                      do (progn
-                                           (format t "~&ccode=~2,'0X (~2,'0X)~%" ccode-masked ccode)
-                                           (write-encoded-char ccode-masked s))
-                                      while (= ccode ccode-masked)))))
-                   (terpri)
-                   (format t "~&Found id ~s~%" name)
-                   (if (zerop i)
-                     (setf rom-name name)
-                     (setf (gethash name ht) (list rom-id i)))))))
+      (loop for rom-offset from 0 by 4096 below (/ (length buffer) 2)
+            do
+            (let ((rom-id (get-10 (+ 0 rom-offset)))
+                  (num-elements (get-10 (+ 1 rom-offset))))
+              (format t "Offset = ~d, rom-id = ~d, num-elements = ~d~%" rom-offset rom-id num-elements)
+              (loop for i below num-elements
+                    do (let* ((raw-value (get-16 (+ 2 (* i 2) rom-offset)))
+                              (flags (aref buffer (* 2 (+ 2 (* i 2) rom-offset))))
+                              (entry-pt (if (> raw-value 4096) (logand raw-value 4095) (+ raw-value rom-offset))) 
+                              (name (with-output-to-string (s)
+                                      (format t "flags = ~x~%" flags)
+                                      (format t "raw-value = ~4,'0X, entry-pt = ~4,'0X~%" raw-value entry-pt)
+                                      (if (zerop (logand flags #x2))
+                                        (loop for addr from (- entry-pt 1) by -1
+                                              for ccode = (get-8 addr)
+                                              for ccode-masked = (logand ccode #x7f)
+                                              do (progn
+                                                   (format t "~&ccode=~2,'0X (~2,'0X)~%" ccode-masked ccode)
+                                                   (write-encoded-char ccode-masked s))
+                                              while (= ccode ccode-masked))
+                                        (let ((label-len (1- (logand (get-8 (+ entry-pt 2)) #xf))))
+                                          (format t "label-len = ~d~%" label-len)
+                                          (loop for i below label-len
+                                                for ccode = (get-8 (+ entry-pt 4 i))
+                                                do (progn
+                                                     (format t "~&ccode=~2,'0X~%" ccode)
+                                                     (write-char (code-char ccode) s))))))))
+                         (terpri)
+                         (format t "~&Found id ~s at i = ~d~%" name i)
+                         (if (and (zerop rom-offset) (zerop i))
+                           (setf rom-name name)
+                           (setf (gethash name ht) (list rom-id i))))))))
     (values rom-name ht)))
 
 (defun extract-xrom (infile &optional (ht (make-hash-table :test #'equal)))
@@ -246,7 +261,7 @@
       (print-table "xroms['yfnz']" (get-yfns (merge-pathnames #p"yfns.txt" basedir) 15) out))))
 
 #||
-(extract-xrom #p"/Users/raw/devel/hp41/rom/bin/41Z.rom")
+(extract-xrom #p"/Users/raw/devel/hp41/rom/bin/41Z.ROM")
 
 (main #p"/Users/raw/devel/hp41/rom/" #p"/Users/raw/devel/hp41barcode/functions.js")
 ||#
