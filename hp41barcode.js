@@ -552,9 +552,9 @@ function gen_dict_re(dict) {
 }
 
 hp41codeparser.prototype.re_one_byte_builtins = 
-    "^" + gen_dict_re(one_byte_builtins);
+    "^" + gen_dict_re(one_byte_builtins) + "(?=\\s|;|$)";
 hp41codeparser.prototype.re_two_byte_builtins = 
-    "^(" + gen_dict_re(two_byte_builtins) + ")\\s+(?:(IND)\\s+)?(\\d{1,2}|[XYZTL])\\b";
+    "^(" + gen_dict_re(two_byte_builtins) + ")\\s+(?:(IND)\\s+)?(\\d{1,2}|[XYZTL])(?=\\s|;|$)";
 
 hp41codeparser.prototype.match_builtins = function () {
     var m;
@@ -712,7 +712,9 @@ function init_externals(modules) {
     if (conflicts != null) {
 	alert("Warning: module conflicts for symbols: " + conflicts);
     }
-    hp41codeparser.prototype.re_externals = "^" + gen_dict_re(externals);
+    hp41codeparser.prototype.re_externals = "^" +
+	gen_dict_re(externals) + 
+	"(?=\\s|;|$)";
 }
 
 
