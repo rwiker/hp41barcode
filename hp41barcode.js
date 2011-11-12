@@ -497,7 +497,7 @@ hp41codeparser.prototype.match_alpha = function () {
 }
 
 hp41codeparser.prototype.re_number = new
-RegExp("^[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][-+]?\\d{1,2})?(?=\\s|;|$)");
+RegExp("^(?:E|(?:[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][-+]?\\d{1,2})?))(?=\\s|;|$)");
 
 hp41codeparser.prototype.match_number = function () {
     var m;
