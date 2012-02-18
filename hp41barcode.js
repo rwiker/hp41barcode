@@ -107,7 +107,7 @@ function hp41barcodegenerator(properties) {
 
 hp41barcodegenerator.prototype.newsheet = function () {
     this.svgelement = document.createElementNS(svgNS, "svg");
-    this.svgelement.setAttribute("style", "font-size: " + this.fontsize);
+    this.svgelement.setAttribute("font-size", this.fontsize);
     this.parentelement.appendChild(this.svgelement);
     this.x = this.xoffset;
     this.y = this.yoffset;
