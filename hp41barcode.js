@@ -180,6 +180,7 @@ hp41barcodegenerator.prototype.row = function (bytes) {
     this.emitbytes(bytes);
     this.trailer();
     this.newrow();
+    $(this.svgelement).height(this.y);
 }
 
 
