@@ -498,7 +498,7 @@ hp41codeparser.prototype.match_alpha = function () {
 }
 
 hp41codeparser.prototype.re_number = new
-RegExp("^(?:E|(?:[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][-+]?\\d{1,2})?))(?=\\s|;|$)");
+RegExp("^(?:E|(?:[-+]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?: ?[eE][-+]?\\d{1,2})?))(?=\\s|;|$)");
 
 hp41codeparser.prototype.match_number = function () {
     var m;
@@ -518,6 +518,9 @@ hp41codeparser.prototype.match_number = function () {
 	    var c = m[0].charAt(i);
 	    if (c === ".") {
 		bytes.push(26);
+	    }
+	    else if (c === ' ') {
+		// ignore
 	    }
 	    else if (c === "+") {
 		// ignore 
@@ -623,7 +626,9 @@ hp41codeparser.prototype.parse = function () {
     init_externals();
     $("#barcodes").empty();
     // strip away line numbers
-    this.sourcecode = this.sourcecode.replace(/^\d+ +/gm, "");
+    if (this.sourcecode.match("^0*1 ")) {
+	this.sourcecode = this.sourcecode.replace(/^\d+ +/gm, "");
+    }
 
     this.skip_sep();
     while (this.sourcecode !== "") {
