@@ -668,7 +668,7 @@ function doit() {
     var program = document.getElementById("program").value;
     var parser = new hp41codeparser(title, program);
     parser.parse();
-    $("#tabs").tabs("select", 1);
+  $("#tabs").tabs({"active": 1});
 }
 
 var externals;
@@ -677,7 +677,7 @@ var defaultmodules = {"CXextfcn": 1, "CXtime": 1, "advantage": 1,
 
 function init_config () {
     var config = $("#config");
-    $(config).html("<div style='float:left;'/><div style='float:right;'/></div style='clear: both;'/>");
+    $(config).html("<div style='float:left;'></div><div style='float:right;'></div><div style='clear: both;'></div>");
     var table = $("<table/>").appendTo(config.children("div:first-child"));
     $(table).append("<tr><th colwidth'=2'>Modules</th></tr>");
     var k;
